@@ -1,4 +1,4 @@
-# Grammar Check for macOS
+# Mac Grammar Check
 
 This project lets you select text on your Mac, send it to any configured language-model API, and paste the corrected version back into the app you are using.
 
@@ -144,7 +144,11 @@ You should get back a corrected version of the text.
 
 ## Use it on your Mac with a Quick Action
 
-The included AppleScript file is `grammar-check.applescript`.
+Open `grammar-check.applescript` and replace `__PROJECT_ROOT__` with the absolute path to the folder where you put this project on your Mac, for example:
+
+```text
+/Users/your-name/mac-grammar-check
+```
 
 You can use it in Automator as a Quick Action:
 
@@ -153,7 +157,7 @@ You can use it in Automator as a Quick Action:
 3. Set it to receive `no input` in `any application`.
 4. Add a `Run AppleScript` action.
 5. Replace the default script with the contents of `grammar-check.applescript`.
-6. Save it with a name like `Grammar Check`.
+6. Save it with a name like `Mac Grammar Check`.
 7. In macOS keyboard settings, assign a shortcut if you want one.
 
 After that, the usual flow is:
@@ -174,7 +178,7 @@ After that, the usual flow is:
 
 - `script.py` - main grammar-check script
 - `script_responses_api.py` - compatibility wrapper that calls `script.py`
-- `grammar-check.applescript` - AppleScript for macOS Quick Actions
+- `grammar-check.applescript` - AppleScript for the macOS Quick Action
 - `.env.example` - sample config for different API styles
 - `requirements.txt` - Python dependencies
 
@@ -184,7 +188,7 @@ If nothing happens:
 
 - make sure your virtual environment exists in `venv/`
 - make sure `.env` contains `AI_MODEL`, `AI_API_FORMAT`, `AI_API_URL`, and `AI_API_HEADERS`
-- make sure the file paths inside `grammar-check.applescript` match where this project is stored on your Mac
+- make sure `__PROJECT_ROOT__` inside `grammar-check.applescript` was replaced with the absolute path to your local repo
 - if macOS says the workflow is not allowed to send keystrokes, open `System Settings > Privacy & Security > Accessibility` and enable the app where you are trying to use this service
 
 If you see an error dialog:

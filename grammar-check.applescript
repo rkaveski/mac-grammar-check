@@ -1,6 +1,8 @@
--- '/Users/rodrigodapazkaveski/Library/Services/Grammar Check.workflow'
+-- Paste this script into an Automator Quick Action.
+-- Set `projectRoot` to the absolute path where this repo lives on your Mac.
+-- Example: /Users/your-name/mac-grammar-check
 
-property projectRoot : "/Users/rodrigodapazkaveski/Sites/grammar-check"
+property projectRoot : "__PROJECT_ROOT__"
 property venvPythonPath : projectRoot & "/venv/bin/python"
 property checkerScriptPath : projectRoot & "/script.py"
 property tempFileTemplate : "/tmp/grammar-check-input.XXXXXX"
@@ -36,18 +38,23 @@ on run {input, parameters}
 		set shellCommand to quoted form of (venvPythonPath & space & quoted form of checkerScriptPath & " < " & quoted form of tempInputPath)
 		set correctedText to do shell script shellPrefix & shellCommand
 
-		if correctedText is not "" and correctedText is not selectedText then
-			my pasteReplacementText(correctedText, originalClipboard)
+		if correctedText is selectedText then
+			display notification noChangesMessage with title notificationTitle
 		else
-			my restoreClipboard(originalClipboard)
-			my showInfoDialog(noChangesMessage)
+			set the clipboard to correctedText
+			my pasteClipboard()
+			delay pasteRestoreDelaySeconds
+			set the clipboard to originalClipboard
+			display notification "Text corrected and pasted." with title notificationTitle
 		end if
-	on error errorMessage number errorNumber
+	on error errMsg number errNum
 		try
 			close access POSIX file tempInputPath
 		end try
-		my restoreClipboard(originalClipboard)
-		display dialog errorMessage buttons {okButtonLabel} default button okButtonLabel with title notificationTitle
+		do shell script "rm -f " & quoted form of tempInputPath
+		if errNum is not -128 then
+			my showErrorDialog(errMsg)
+		end if
 		return input
 	end try
 
@@ -55,71 +62,60 @@ on run {input, parameters}
 		close access POSIX file tempInputPath
 	end try
 	do shell script "rm -f " & quoted form of tempInputPath
-
 	return input
 end run
 
-on normalizeSelectedText(rawInput)
-	if rawInput is missing value then return ""
-
-	if class of rawInput is list then
-		if rawInput is {} then return ""
-		return my normalizeSelectedText(item 1 of rawInput)
+on normalizeSelectedText(inputValue)
+	if class of inputValue is list then
+		if (count of inputValue) is 0 then return ""
+		try
+			return item 1 of inputValue as text
+		on error
+			return ""
+		end try
 	end if
-
 	try
-		return (rawInput as text)
+		return inputValue as text
 	on error
 		return ""
 	end try
 end normalizeSelectedText
 
-on readClipboardSafely()
-	try
-		return the clipboard
-	on error
-		return missing value
-	end try
-end readClipboardSafely
-
 on copySelectedText()
-	set clipboardSentinel to do shell script "uuidgen"
-	set the clipboard to clipboardSentinel
-
+	set previousClipboard to my readClipboardSafely()
 	tell application "System Events"
 		keystroke "c" using command down
 	end tell
 
-	repeat with pollAttempt from 1 to copyPollAttempts
+	repeat copyPollAttempts times
 		delay copyPollDelaySeconds
-		try
-			set copiedText to the clipboard as text
-			if copiedText is not clipboardSentinel and copiedText is not "" then
-				return copiedText
-			end if
-		end try
+		set currentClipboard to my readClipboardSafely()
+		if currentClipboard is not previousClipboard and currentClipboard is not "" then
+			return currentClipboard
+		end if
 	end repeat
 
-	error copyFailureMessage
+	error copyFailureMessage number 1001
 end copySelectedText
 
-on pasteReplacementText(correctedText, originalClipboard)
-	set the clipboard to correctedText
+on readClipboardSafely()
+	try
+		return the clipboard as text
+	on error
+		return ""
+	end try
+end readClipboardSafely
+
+on pasteClipboard()
 	tell application "System Events"
 		keystroke "v" using command down
 	end tell
-	delay pasteRestoreDelaySeconds
-	my restoreClipboard(originalClipboard)
-end pasteReplacementText
-
-on restoreClipboard(originalClipboard)
-	if originalClipboard is missing value then return
-
-	try
-		set the clipboard to originalClipboard
-	end try
-end restoreClipboard
+end pasteClipboard
 
 on showInfoDialog(messageText)
 	display dialog messageText buttons {okButtonLabel} default button okButtonLabel with title notificationTitle
 end showInfoDialog
+
+on showErrorDialog(messageText)
+	display dialog messageText buttons {okButtonLabel} default button okButtonLabel with title notificationTitle with icon caution
+end showErrorDialog
