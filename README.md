@@ -112,7 +112,7 @@ If nothing happens:
 - make sure your virtual environment exists in `venv/`
 - make sure `.env` contains a valid `OPENAI_API_KEY`
 - make sure the file paths inside `grammar-check.applescript` match where this project is stored on your Mac
-- make sure macOS has permission to let Automator or System Events control your keyboard
+- if macOS says the workflow is not allowed to send keystrokes, open `System Settings > Privacy & Security > Accessibility` and enable the app where you are trying to use this service.
 
 If you see an error dialog:
 
