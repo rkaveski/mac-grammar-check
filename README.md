@@ -1,6 +1,12 @@
 # Grammar Check for macOS
 
-This project lets you select text on your Mac, run a grammar and style cleanup with OpenAI, and paste the corrected version back into the app you are using.
+This project lets you select text on your Mac, send it to any configured language-model API, and paste the corrected version back into the app you are using.
+
+The workflow is provider-agnostic in code:
+
+- the AppleScript only captures and pastes text
+- the Python script only reads `.env`, sends one HTTP request, and parses the configured API format
+- provider details such as URL, headers, model, and request format live in `.env`
 
 It is built for everyday writing tasks like:
 
@@ -10,20 +16,40 @@ It is built for everyday writing tasks like:
 - short documents
 - page-length text selections
 
-It is not meant for book-length editing, but it is designed to handle much more than a single paragraph.
-
 ## What it does
 
 - fixes grammar, spelling, punctuation, and spacing
 - keeps the original meaning and paragraph structure
-- makes the text sound more natural and casual when needed
+- makes the text sound more natural when needed
 - works with longer selections by splitting them into safe chunks behind the scenes
 
 ## What you need
 
 - a Mac
 - Python 3
-- an OpenAI API key
+- any model API endpoint you want to use
+- the endpoint URL, auth headers if needed, model name, and API format
+
+## Supported API formats
+
+The script is API-endpoint agnostic, but it still needs to know the request and response shape.
+
+Supported formats:
+
+- `openai_responses`
+- `openai_chat`
+- `anthropic_messages`
+
+That covers common setups such as:
+
+- OpenAI
+- Anthropic Claude
+- DeepSeek
+- OpenRouter
+- LM Studio
+- vLLM
+- Ollama local or remote through its OpenAI-compatible endpoint
+- any other gateway that matches one of those wire formats
 
 ## Quick setup
 
@@ -53,10 +79,57 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-7. Open `.env` and replace the placeholder with your real API key:
+7. Edit `.env` with your own API details.
+
+OpenAI example:
 
 ```env
-OPENAI_API_KEY=your_openai_api_key_here
+AI_MODEL=gpt-4.1-nano
+AI_API_FORMAT=openai_responses
+AI_API_URL=https://api.openai.com/v1/responses
+AI_API_HEADERS={"Authorization":"Bearer YOUR_API_KEY"}
+```
+
+Claude example:
+
+```env
+AI_MODEL=claude-3-7-sonnet-latest
+AI_API_FORMAT=anthropic_messages
+AI_API_URL=https://api.anthropic.com/v1/messages
+AI_API_HEADERS={"x-api-key":"YOUR_API_KEY","anthropic-version":"2023-06-01"}
+```
+
+DeepSeek or another OpenAI-compatible endpoint:
+
+```env
+AI_MODEL=deepseek-chat
+AI_API_FORMAT=openai_chat
+AI_API_URL=https://api.deepseek.com/chat/completions
+AI_API_HEADERS={"Authorization":"Bearer YOUR_API_KEY"}
+```
+
+Ollama on the same machine:
+
+```env
+AI_MODEL=llama3.1
+AI_API_FORMAT=openai_chat
+AI_API_URL=http://localhost:11434/v1/chat/completions
+AI_API_HEADERS={}
+```
+
+Ollama on another machine or in Docker:
+
+```env
+AI_MODEL=llama3.1
+AI_API_FORMAT=openai_chat
+AI_API_URL=http://192.168.1.20:11434/v1/chat/completions
+AI_API_HEADERS={}
+```
+
+Optional request extras:
+
+```env
+AI_API_BODY={"temperature":0.2}
 ```
 
 ## Basic test
@@ -92,35 +165,36 @@ After that, the usual flow is:
 
 ## How it works
 
-- `script.py` sends the selected text to OpenAI using the Responses API
+- `script.py` reads the endpoint config from `.env`
+- `script.py` sends the selected text to the configured API URL
 - `grammar-check.applescript` uses Quick Action input when available and otherwise copies the current selection directly
 - longer text is split into chunks so page-length selections are more reliable
 
 ## Files in this project
 
 - `script.py` - main grammar-check script
+- `script_responses_api.py` - compatibility wrapper that calls `script.py`
 - `grammar-check.applescript` - AppleScript for macOS Quick Actions
+- `.env.example` - sample config for different API styles
 - `requirements.txt` - Python dependencies
-- `.env.example` - sample local config file for your API key
-
-There are also a couple of older script files kept for reference.
 
 ## Troubleshooting
 
 If nothing happens:
 
 - make sure your virtual environment exists in `venv/`
-- make sure `.env` contains a valid `OPENAI_API_KEY`
+- make sure `.env` contains `AI_MODEL`, `AI_API_FORMAT`, `AI_API_URL`, and `AI_API_HEADERS`
 - make sure the file paths inside `grammar-check.applescript` match where this project is stored on your Mac
-- if macOS says the workflow is not allowed to send keystrokes, open `System Settings > Privacy & Security > Accessibility` and enable the app where you are trying to use this service.
+- if macOS says the workflow is not allowed to send keystrokes, open `System Settings > Privacy & Security > Accessibility` and enable the app where you are trying to use this service
 
 If you see an error dialog:
 
-- check that your internet connection is working
-- confirm your OpenAI API key is active
+- check that your configured API URL is reachable from this Mac
+- check that your headers are valid JSON
+- check that your API format matches the endpoint you are calling
+- check that your model name is valid for that endpoint
 - try again with a smaller text selection if the input is unusually large
 - if the dialog says `There was a problem with the input to the Service`, the Quick Action is probably configured to receive `text` or the current app is not exposing selected text to macOS Services
-- re-open the workflow in Automator and set it to receive `no input` in `any application`, then paste in the latest `grammar-check.applescript`
 
 If the wrong text gets pasted:
 
@@ -128,27 +202,8 @@ If the wrong text gets pasted:
 
 ## Privacy note
 
-Selected text is sent to the OpenAI API so it can be corrected. Do not use this workflow for sensitive text unless you are comfortable sending that content through your API account.
-
-## Contributing
-
-You do not need to be an expert to help improve this project.
-
-Good first contributions:
-
-- improve the README
-- make the setup easier
-- improve error messages
-- make the AppleScript flow more reliable
-- add small tests for chunking and response parsing
-
-If you want to contribute code:
-
-1. Create a branch.
-2. Make a small focused change.
-3. Test with both a short paragraph and a longer page-length sample.
-4. Open a pull request with a simple explanation of what changed and why.
+Selected text is sent to whichever API you configure in `.env`. If you use a remote service, do not use this workflow for sensitive text unless you are comfortable sending that content to that service. If you use a local endpoint, the text stays on the machine or network where that endpoint runs.
 
 ## License
 
-This project uses the MIT License. That means people can use it, copy it, modify it, and share it freely, including in their own projects, as long as the license notice stays with the code.
+This project uses the MIT License.
