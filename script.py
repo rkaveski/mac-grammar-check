@@ -15,6 +15,11 @@ ENV_FILE_NAME = ".env"
 ENV_ASSIGNMENT_SEPARATOR = "="
 PARAGRAPH_SEPARATOR = "\n\n"
 SENTENCE_BOUNDARY_PATTERN = re.compile(r"(?<=[.!?])\s+")
+EM_DASH_CHARACTER = "—"
+COMMA_SPACE = ", "
+EM_DASH_WITH_OPTIONAL_SPACES_PATTERN = re.compile(
+    rf"\s*{re.escape(EM_DASH_CHARACTER)}\s*"
+)
 
 FORMAT_OPENAI_RESPONSES = "openai_responses"
 FORMAT_OPENAI_CHAT = "openai_chat"
@@ -77,7 +82,7 @@ Fluency and punctuation rules:
     - Prefer human-like flow. Reduce rigid or overly segmented sentences when possible.
     - Use commas to improve readability and natural rhythm where appropriate.
     - Avoid excessive sentence fragmentation. Do not split ideas into multiple short sentences unless needed for clarity.
-    - Avoid em dashes. Prefer commas or periods instead, unless an em dash is clearly intentional by the author.
+    - Never introduce em dashes (—). Prefer commas or periods instead.
     - Keep punctuation aligned with the author’s style and level of formality.
 
 Transformation rules:
@@ -86,12 +91,15 @@ Transformation rules:
     - Break or merge sentences only if it improves clarity without changing tone.
     - Normalize obvious typos and spelling errors.
     - Keep punctuation minimal and aligned with the original style.
+    - Rephrase AI-style lead-in labels into full sentences. When a short summary tag is followed by a colon (for example "Short version:", "Bottom line:", "The main point:", "TL;DR:", "In short:", "The gist:"), do not keep the colon and do not swap in a different tag-plus-colon. Either state the point directly as a plain sentence, or turn the lead-in into flowing prose by connecting it with a verb or comma (for example "The main point:" becomes "The main point is that ...", "In short:" becomes "In short, ..."). The result must always be a grammatical sentence, never a label sitting in front of a colon.
 
 Do not:
     - Add explanations, comments, or justifications.
     - Introduce new content, examples, or clarifications.
     - Change tone to be more polite, academic, or verbose.
     - Over-correct into native-level idiomatic expressions if it alters the author’s voice.
+    - Use em dashes (—). They read as AI-like in everyday writing; replace them with commas or periods.
+    - Keep, introduce, or swap in any short label-and-colon lead-in ("Short version:", "Bottom line:", "The main point:", "In short:", and similar). Replacing one such tag with another is not a fix. Write a complete sentence instead. Leave genuine structural or technical labels (such as field names, "Note:", "Warning:", "Error:") untouched.
 
 Output format:
     - Return only the corrected text.
@@ -475,6 +483,10 @@ def extract_output_text(api_format, response_data):
     raise Exception(UNSUPPORTED_API_FORMAT_MESSAGE)
 
 
+def normalize_em_dash_usage(text):
+    return EM_DASH_WITH_OPTIONAL_SPACES_PATTERN.sub(COMMA_SPACE, text)
+
+
 def correct_chunk(text):
     api_format = get_api_format()
 
@@ -504,7 +516,8 @@ def correct_chunk(text):
     if error_message and response_data.get(ERROR_KEY) is not None:
         raise Exception(f"API Error: {error_message}")
 
-    return extract_output_text(api_format, response_data)
+    corrected_text = extract_output_text(api_format, response_data)
+    return normalize_em_dash_usage(corrected_text)
 
 
 def correct_grammar(text):
